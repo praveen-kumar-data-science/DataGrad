@@ -10,7 +10,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { CommonModule } from '@angular/common';
-import emailjs from '@emailjs/browser';
 @Component({
   selector: 'app-hero-banner',
   standalone: true,
@@ -32,7 +31,6 @@ import emailjs from '@emailjs/browser';
 export class HeroBannerComponent {
   isSmallScreen = false;
   contactForm: FormGroup;
-  private emailJsInitialized = false;
 
   constructor(private breakpointObserver: BreakpointObserver, private fb: FormBuilder) {
     this.contactForm = this.fb.group({
@@ -141,33 +139,13 @@ export class HeroBannerComponent {
 
   onSubmit() {
     if (this.contactForm.valid) {
-      if (!this.emailJsInitialized) {
-        try {
-          emailjs.init('U5uIYArDWBCqC7Av0');
-          this.emailJsInitialized = true;
-        } catch (error: unknown) {
-          console.error('EmailJS init failed:', error);
-          alert('Contact form is temporarily unavailable. Please email datagradai@gmail.com directly.');
-          return;
-        }
-      }
-
       const formData = this.contactForm.value;
-      const emailParams = {
-        from_name: formData.name,
-        from_email: formData.email,
-        message: formData.message,
-        to_email: 'datagradai@gmail.com'
-      };
-      emailjs.send('service_datagrad', 'template_datagrad', emailParams)
-        .then(() => {
-          alert('Thank you! Your message has been sent successfully. We will get back to you soon.');
-          this.contactForm.reset();
-        })
-        .catch((error: unknown) => {
-          console.error('Email send failed:', error);
-          alert('Sorry, there was an error sending your message. Please try again.');
-        });
+      const subject = encodeURIComponent(`DataGrad Contact - ${formData.name}`);
+      const body = encodeURIComponent(
+        `Name: ${formData.name}\nEmail: ${formData.email}\n\nMessage:\n${formData.message}`
+      );
+      window.location.href = `mailto:datagradai@gmail.com?subject=${subject}&body=${body}`;
+      this.contactForm.reset();
     }
   }
 }
