@@ -3,6 +3,12 @@ import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { AuthService } from '../../../services/auth.service';
+import {
+  comprehensiveDatabricksQuestions,
+  DBQuestion,
+  getQuestionsByTopic,
+  getAllQuestionsByLevel
+} from '../../../data/databricks-comprehensive-questions';
 
 type QuestionType = 'single' | 'multiple';
 type Difficulty = 'Basic' | 'Complex' | 'Interview';
@@ -194,7 +200,52 @@ export class QuizComponent implements OnInit {
     this.attemptsState = this.createDefaultAttemptState();
   }
 
+  private buildDatabricksQuestionBank(): QuizQuestion[] {
+    // Determine if user selected Associate or Professional level
+    const isAssociate = this.topicSlug.includes('associate');
+    const isProfessional = this.topicSlug.includes('professional');
+
+    let questions: DBQuestion[] = [];
+
+    // Get questions by level
+    if (isAssociate || !isProfessional) {
+      // Default to Associate if not explicit
+      questions = getAllQuestionsByLevel('associate');
+    } else {
+      questions = getAllQuestionsByLevel('professional');
+    }
+
+    // If a specific topic was selected, filter to that topic
+    if (this.focusTopic && this.focusTopic !== 'associate' && this.focusTopic !== 'professional') {
+      const normalizedTopic = this.toTitleCase(this.focusTopic.replace(/-/g, ' '));
+      const topicQuestions = questions.filter(q => q.topic.toLowerCase() === normalizedTopic.toLowerCase());
+      if (topicQuestions.length > 0) {
+        questions = topicQuestions;
+      }
+    }
+
+    // Limit to 40 questions for consistency with other sections
+    const selectedQuestions = questions.slice(0, 40);
+
+    // Convert DBQuestion to QuizQuestion format
+    return selectedQuestions.map((dbQ, idx) => ({
+      id: `databricks-${idx + 1}`,
+      topic: dbQ.subtopic || dbQ.topic,
+      question: dbQ.question,
+      options: dbQ.options,
+      correctAnswers: dbQ.correctAnswers,
+      type: dbQ.correctAnswers.length === 1 ? 'single' : 'multiple',
+      difficulty: dbQ.difficulty === 'basic' ? 'Basic' : dbQ.difficulty === 'intermediate' ? 'Complex' : 'Interview'
+    }));
+  }
+
   private buildQuestionBank(count: number): QuizQuestion[] {
+    // For Databricks section, use comprehensive real certification questions
+    if (this.sectionId === 'databricks') {
+      return this.buildDatabricksQuestionBank();
+    }
+
+    // For other sections, use template-based generation (existing logic)
     const normalizedFocusTopic = this.toTitleCase(this.focusTopic.replace(/-/g, ' '));
     const topicPool = this.createTopicPool(normalizedFocusTopic);
 
