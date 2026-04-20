@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
+import { AuthService } from '../../../services/auth.service';
 
 type QuestionType = 'single' | 'multiple';
 type Difficulty = 'Basic' | 'Complex' | 'Interview';
@@ -41,28 +42,25 @@ interface TopicStat {
 export class QuizComponent implements OnInit {
   sectionId = '';
   focusTopic = '';
+  topicSlug = '';
   sectionLabel = 'Section';
   readonly totalQuestions = 40;
   questions: QuizQuestion[] = [];
   attemptsState: Record<string, QuestionAttemptState> = {};
 
-  constructor(private readonly route: ActivatedRoute) {}
+  constructor(
+    private readonly route: ActivatedRoute,
+    private readonly authService: AuthService
+  ) {}
 
   ngOnInit(): void {
     this.sectionId = this.route.snapshot.paramMap.get('sectionId') ?? 'sql';
+    this.topicSlug = this.route.snapshot.paramMap.get('topicSlug') ?? 'topic';
     this.focusTopic = this.route.snapshot.queryParamMap.get('topic') ?? this.route.snapshot.paramMap.get('topicSlug') ?? 'Topic';
     this.sectionLabel = this.toTitleCase(this.sectionId.replace(/-/g, ' '));
     this.questions = this.buildQuestionBank(this.totalQuestions);
-    this.attemptsState = this.questions.reduce((acc, question) => {
-      acc[question.id] = {
-        selectedAnswers: [],
-        status: 'idle',
-        attempts: 0,
-        locked: false,
-        firstAttemptCorrect: null
-      };
-      return acc;
-    }, {} as Record<string, QuestionAttemptState>);
+    this.attemptsState = this.createDefaultAttemptState();
+    this.restoreProgress();
   }
 
   get solvedCount(): number {
@@ -120,6 +118,7 @@ export class QuizComponent implements OnInit {
 
     state.selectedAnswers = [optionIndex];
     state.status = 'idle';
+    this.persistProgress();
   }
 
   toggleMultiple(questionId: string, optionIndex: number): void {
@@ -135,6 +134,7 @@ export class QuizComponent implements OnInit {
     }
 
     state.status = 'idle';
+    this.persistProgress();
   }
 
   isSelected(questionId: string, optionIndex: number): boolean {
@@ -157,10 +157,12 @@ export class QuizComponent implements OnInit {
     if (isCorrect) {
       state.status = 'correct';
       state.locked = true;
+      this.persistProgress();
       return;
     }
 
     state.status = 'incorrect';
+    this.persistProgress();
   }
 
   statusText(questionId: string): string {
@@ -333,5 +335,63 @@ export class QuizComponent implements OnInit {
       .filter(Boolean)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
+  }
+
+  private createDefaultAttemptState(): Record<string, QuestionAttemptState> {
+    return this.questions.reduce((acc, question) => {
+      acc[question.id] = {
+        selectedAnswers: [],
+        status: 'idle',
+        attempts: 0,
+        locked: false,
+        firstAttemptCorrect: null
+      };
+      return acc;
+    }, {} as Record<string, QuestionAttemptState>);
+  }
+
+  private restoreProgress(): void {
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) {
+      return;
+    }
+
+    const storedValue = localStorage.getItem(this.storageKey(currentUser));
+    if (!storedValue) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(storedValue) as Record<string, QuestionAttemptState>;
+      for (const question of this.questions) {
+        const savedState = parsed[question.id];
+        if (!savedState) {
+          continue;
+        }
+
+        this.attemptsState[question.id] = {
+          selectedAnswers: Array.isArray(savedState.selectedAnswers) ? savedState.selectedAnswers : [],
+          status: savedState.status === 'correct' || savedState.status === 'incorrect' ? savedState.status : 'idle',
+          attempts: typeof savedState.attempts === 'number' ? savedState.attempts : 0,
+          locked: !!savedState.locked,
+          firstAttemptCorrect: typeof savedState.firstAttemptCorrect === 'boolean' ? savedState.firstAttemptCorrect : null
+        };
+      }
+    } catch {
+      this.attemptsState = this.createDefaultAttemptState();
+    }
+  }
+
+  private persistProgress(): void {
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser) {
+      return;
+    }
+
+    localStorage.setItem(this.storageKey(currentUser), JSON.stringify(this.attemptsState));
+  }
+
+  private storageKey(userEmail: string): string {
+    return `datagrad-quiz-progress-${userEmail}-${this.sectionId}-${this.topicSlug}`;
   }
 }
