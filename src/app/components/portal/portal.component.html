@@ -5,7 +5,7 @@
         <span class="portal-eyebrow">Protected Training Portal</span>
         <h1>Welcome to your DataGrad training workspace</h1>
         <p>
-          Review the program by section, open the lessons inside each module, and work through the sequence the same way a structured prep dashboard would present it.
+          Track your lesson progress, jump back into the last module you touched, and move through the curriculum like a structured student dashboard.
         </p>
       </div>
 
@@ -19,6 +19,56 @@
       </div>
     </div>
 
+    <div class="dashboard-grid">
+      <section class="dashboard-card dashboard-card-primary">
+        <span class="section-kicker">Student dashboard</span>
+        <h2>Continue where you left off</h2>
+        <p>{{ continueLessonLabel }}</p>
+
+        <div class="dashboard-progress-row">
+          <div>
+            <strong>{{ overallProgressPercent }}%</strong>
+            <span>overall progress</span>
+          </div>
+          <div>
+            <strong>{{ completedLessonCount }}/{{ totalLessons }}</strong>
+            <span>lessons completed</span>
+          </div>
+          <div>
+            <strong>{{ remainingLessonCount }}</strong>
+            <span>lessons remaining</span>
+          </div>
+        </div>
+
+        <div class="progress-bar-shell large">
+          <div class="progress-bar-fill" [style.width.%]="overallProgressPercent"></div>
+        </div>
+
+        <button mat-flat-button type="button" class="portal-logout" (click)="continueFromLastLesson()">
+          {{ continueButtonLabel }}
+        </button>
+      </section>
+
+      <section class="dashboard-card dashboard-card-secondary">
+        <span class="section-kicker">Progress snapshot</span>
+        <h2>Your current focus</h2>
+        <div class="focus-grid">
+          <div class="focus-item">
+            <span>Active section</span>
+            <strong>{{ selectedSection.label }}</strong>
+          </div>
+          <div class="focus-item">
+            <span>Active lesson</span>
+            <strong>{{ currentLesson?.title || 'Select a lesson' }}</strong>
+          </div>
+          <div class="focus-item">
+            <span>Completed in section</span>
+            <strong>{{ completedLessonsForSection(selectedSection) }}/{{ selectedSection.lessons.length }}</strong>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <div class="portal-layout">
       <aside class="portal-sidebar">
         <span class="sidebar-label">Sections</span>
@@ -29,7 +79,10 @@
           [class.active]="section.id === selectedSectionId"
           (click)="selectSection(section.id)">
           <span>{{ section.label }}</span>
-          <small>{{ section.lessons.length }} lessons</small>
+          <small>{{ completedLessonsForSection(section) }}/{{ section.lessons.length }} lessons complete</small>
+          <div class="progress-bar-shell">
+            <div class="progress-bar-fill" [style.width.%]="sectionProgressPercent(section)"></div>
+          </div>
         </button>
       </aside>
 
@@ -38,18 +91,44 @@
           <span class="section-kicker">{{ selectedSection.label }}</span>
           <h2>{{ selectedSection.label }} Training</h2>
           <p>{{ selectedSection.description }}</p>
+          <div class="section-progress-inline">
+            <span>{{ completedLessonsForSection(selectedSection) }}/{{ selectedSection.lessons.length }} lessons complete</span>
+            <strong>{{ sectionProgressPercent(selectedSection) }}%</strong>
+          </div>
+          <div class="progress-bar-shell large">
+            <div class="progress-bar-fill" [style.width.%]="sectionProgressPercent(selectedSection)"></div>
+          </div>
         </div>
 
         <div class="lesson-grid">
           <article *ngFor="let lesson of selectedSection.lessons" class="lesson-card">
-            <div class="lesson-header">
-              <h3>{{ lesson.title }}</h3>
-              <span>{{ lesson.topics.length }} topics</span>
-            </div>
+            <div
+              class="lesson-card-shell"
+              [class.selected]="isSelectedLesson(selectedSection.id, lesson.title)"
+              [class.completed]="isLessonCompleted(selectedSection.id, lesson.title)">
+              <div class="lesson-header">
+                <div>
+                  <h3>{{ lesson.title }}</h3>
+                  <span>{{ lesson.topics.length }} topics</span>
+                </div>
+                <span class="lesson-state" [class.completed]="isLessonCompleted(selectedSection.id, lesson.title)">
+                  {{ isLessonCompleted(selectedSection.id, lesson.title) ? 'Completed' : 'In progress' }}
+                </span>
+              </div>
 
-            <ul>
-              <li *ngFor="let topic of lesson.topics">{{ topic }}</li>
-            </ul>
+              <div class="lesson-actions">
+                <button mat-stroked-button type="button" (click)="selectLesson(selectedSection.id, lesson.title)">
+                  Open lesson
+                </button>
+                <button mat-flat-button type="button" class="lesson-complete" (click)="toggleLessonCompletion(selectedSection.id, lesson.title)">
+                  {{ isLessonCompleted(selectedSection.id, lesson.title) ? 'Mark incomplete' : 'Mark complete' }}
+                </button>
+              </div>
+
+              <ul>
+                <li *ngFor="let topic of lesson.topics">{{ topic }}</li>
+              </ul>
+            </div>
           </article>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -23,7 +23,7 @@ interface PortalSection {
   templateUrl: './portal.component.html',
   styleUrl: './portal.component.css'
 })
-export class PortalComponent {
+export class PortalComponent implements OnInit {
   readonly trainingSections: PortalSection[] = [
     {
       id: 'sql',
@@ -138,14 +138,82 @@ export class PortalComponent {
     }
   ];
   selectedSectionId = this.trainingSections[0].id;
+  selectedLessonId: string | null = null;
+  completedLessons: Record<string, boolean> = {};
 
   constructor(
     private readonly authService: AuthService,
     private readonly router: Router
   ) {}
 
+  ngOnInit(): void {
+    this.loadProgress();
+
+    const lastLessonId = this.lastViewedLessonId;
+    if (lastLessonId) {
+      this.focusLesson(lastLessonId);
+      return;
+    }
+
+    const firstSection = this.trainingSections[0];
+    const firstLesson = firstSection.lessons[0];
+    this.selectedSectionId = firstSection.id;
+    this.selectedLessonId = this.lessonId(firstSection.id, firstLesson.title);
+  }
+
   get currentUser(): string | null {
     return this.authService.getCurrentUser();
+  }
+
+  get totalLessons(): number {
+    return this.trainingSections.reduce((count, section) => count + section.lessons.length, 0);
+  }
+
+  get completedLessonCount(): number {
+    return Object.values(this.completedLessons).filter(Boolean).length;
+  }
+
+  get overallProgressPercent(): number {
+    return this.toPercent(this.completedLessonCount, this.totalLessons);
+  }
+
+  get continueLessonLabel(): string {
+    const lesson = this.currentLesson;
+    if (!lesson) {
+      return 'Start the first lesson';
+    }
+
+    return `${this.selectedSection.label} - ${lesson.title}`;
+  }
+
+  get continueButtonLabel(): string {
+    return this.currentLesson && !this.isLessonCompleted(this.selectedSection.id, this.currentLesson.title)
+      ? 'Continue lesson'
+      : 'Resume learning';
+  }
+
+  get currentLesson(): PortalLesson | null {
+    if (!this.selectedLessonId) {
+      return null;
+    }
+
+    return this.selectedSection.lessons.find(
+      lesson => this.lessonId(this.selectedSection.id, lesson.title) === this.selectedLessonId
+    ) ?? null;
+  }
+
+  get remainingLessonCount(): number {
+    return this.totalLessons - this.completedLessonCount;
+  }
+
+  get lastViewedLessonId(): string | null {
+    const currentUser = this.currentUser;
+
+    if (!currentUser) {
+      return null;
+    }
+
+    return localStorage.getItem(this.lastViewedStorageKey(currentUser));
   }
 
   get selectedSection(): PortalSection {
@@ -154,10 +222,141 @@ export class PortalComponent {
 
   selectSection(sectionId: string): void {
     this.selectedSectionId = sectionId;
+
+    const selectedSection = this.selectedSection;
+    if (!selectedSection.lessons.some(lesson => this.lessonId(sectionId, lesson.title) === this.selectedLessonId)) {
+      const firstLesson = selectedSection.lessons[0];
+      this.selectedLessonId = this.lessonId(sectionId, firstLesson.title);
+      this.persistLastViewedLesson();
+    }
+  }
+
+  selectLesson(sectionId: string, lessonTitle: string): void {
+    this.selectedSectionId = sectionId;
+    this.selectedLessonId = this.lessonId(sectionId, lessonTitle);
+    this.persistLastViewedLesson();
+  }
+
+  continueFromLastLesson(): void {
+    const lastLessonId = this.lastViewedLessonId;
+
+    if (lastLessonId) {
+      this.focusLesson(lastLessonId);
+      return;
+    }
+
+    const firstSection = this.trainingSections[0];
+    this.selectLesson(firstSection.id, firstSection.lessons[0].title);
+  }
+
+  toggleLessonCompletion(sectionId: string, lessonTitle: string): void {
+    const lessonId = this.lessonId(sectionId, lessonTitle);
+    const isCompleted = !!this.completedLessons[lessonId];
+
+    this.completedLessons = {
+      ...this.completedLessons,
+      [lessonId]: !isCompleted
+    };
+
+    this.selectedSectionId = sectionId;
+    this.selectedLessonId = lessonId;
+    this.persistProgress();
+    this.persistLastViewedLesson();
+  }
+
+  isLessonCompleted(sectionId: string, lessonTitle: string): boolean {
+    return !!this.completedLessons[this.lessonId(sectionId, lessonTitle)];
+  }
+
+  isSelectedLesson(sectionId: string, lessonTitle: string): boolean {
+    return this.selectedLessonId === this.lessonId(sectionId, lessonTitle);
+  }
+
+  completedLessonsForSection(section: PortalSection): number {
+    return section.lessons.filter(lesson => this.isLessonCompleted(section.id, lesson.title)).length;
+  }
+
+  sectionProgressPercent(section: PortalSection): number {
+    return this.toPercent(this.completedLessonsForSection(section), section.lessons.length);
   }
 
   logout(): void {
     this.authService.logout();
     void this.router.navigate(['/']);
+  }
+
+  private focusLesson(lessonId: string): void {
+    for (const section of this.trainingSections) {
+      const lesson = section.lessons.find(candidate => this.lessonId(section.id, candidate.title) === lessonId);
+
+      if (lesson) {
+        this.selectedSectionId = section.id;
+        this.selectedLessonId = lessonId;
+        this.persistLastViewedLesson();
+        return;
+      }
+    }
+  }
+
+  private loadProgress(): void {
+    const currentUser = this.currentUser;
+
+    if (!currentUser) {
+      this.completedLessons = {};
+      return;
+    }
+
+    const storedProgress = localStorage.getItem(this.progressStorageKey(currentUser));
+
+    if (!storedProgress) {
+      this.completedLessons = {};
+      return;
+    }
+
+    try {
+      this.completedLessons = JSON.parse(storedProgress) as Record<string, boolean>;
+    } catch {
+      this.completedLessons = {};
+    }
+  }
+
+  private persistProgress(): void {
+    const currentUser = this.currentUser;
+
+    if (!currentUser) {
+      return;
+    }
+
+    localStorage.setItem(this.progressStorageKey(currentUser), JSON.stringify(this.completedLessons));
+  }
+
+  private persistLastViewedLesson(): void {
+    const currentUser = this.currentUser;
+
+    if (!currentUser || !this.selectedLessonId) {
+      return;
+    }
+
+    localStorage.setItem(this.lastViewedStorageKey(currentUser), this.selectedLessonId);
+  }
+
+  private progressStorageKey(userEmail: string): string {
+    return `datagrad-progress-${userEmail}`;
+  }
+
+  private lastViewedStorageKey(userEmail: string): string {
+    return `datagrad-last-lesson-${userEmail}`;
+  }
+
+  private lessonId(sectionId: string, lessonTitle: string): string {
+    return `${sectionId}::${lessonTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+  }
+
+  private toPercent(value: number, total: number): number {
+    if (!total) {
+      return 0;
+    }
+
+    return Math.round((value / total) * 100);
   }
 }
