@@ -1,6 +1,8 @@
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { Component, OnInit, ViewChild } from '@angular/core';
+import { Router } from '@angular/router';
 import { MatSidenav } from '@angular/material/sidenav';
+import { AuthService } from '../../../services/auth.service';
 
 @Component({
   selector: 'app-header',
@@ -9,24 +11,36 @@ import { MatSidenav } from '@angular/material/sidenav';
 })
 export class HeaderComponent implements OnInit {
   isSmallScreen = false;
+  isLoggedIn = false;
   @ViewChild('sidenav') sidenav!: MatSidenav;
 
-  constructor(private breakpointObserver: BreakpointObserver) {}
+  constructor(
+    private breakpointObserver: BreakpointObserver,
+    private authService: AuthService,
+    private router: Router
+  ) {}
 
   ngOnInit() {
     this.breakpointObserver.observe([Breakpoints.XSmall, Breakpoints.Small])
       .subscribe(result => {
         this.isSmallScreen = result.matches;
       });
+
+    this.authService.isLoggedIn$.subscribe(isLoggedIn => {
+      this.isLoggedIn = isLoggedIn;
+    });
   }
 
   toggleSidenav() {
     this.sidenav.toggle();
   }
-  onContribute(){
-    const link=document.createElement('a');
-    link.href="#";
-    link.click();
+
+  logout(): void {
+    this.authService.logout();
+    void this.router.navigate(['/']);
+    if (this.sidenav) {
+      void this.sidenav.close();
+    }
   }
 }
 

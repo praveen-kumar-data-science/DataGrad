@@ -122,7 +122,8 @@
 }
 
 .primary-button,
-.secondary-button {
+.secondary-button,
+.tertiary-button {
   min-height: 44px;
   padding: 0 20px;
   border-radius: 999px;
@@ -137,6 +138,12 @@
 .secondary-button {
   border-color: rgba(23, 50, 77, 0.22) !important;
   color: var(--accent-strong) !important;
+}
+
+.tertiary-button {
+  border-color: rgba(215, 170, 92, 0.38) !important;
+  background: rgba(255, 255, 255, 0.72) !important;
+  color: var(--text-strong) !important;
 }
 
 .hero-metrics {

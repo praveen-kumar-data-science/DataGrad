@@ -1,0 +1,30 @@
+<section class="login-page">
+  <div class="login-card">
+    <span class="login-eyebrow">Member Access</span>
+    <h1>Login to DataGrad</h1>
+    <p>
+      Enter your credentials to open the protected portal.
+    </p>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <mat-form-field appearance="outline">
+        <mat-label>Username</mat-label>
+        <input matInput formControlName="username" autocomplete="username">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Password</mat-label>
+        <input matInput type="password" formControlName="password" autocomplete="current-password">
+      </mat-form-field>
+
+      <p *ngIf="loginError" class="login-error">{{ loginError }}</p>
+
+      <button mat-flat-button type="submit" class="login-button">Login</button>
+    </form>
+
+    <div class="login-meta">
+      <span>Configured demo credentials live in the auth service.</span>
+      <a routerLink="/">Back to homepage</a>
+    </div>
+  </div>
+</section>

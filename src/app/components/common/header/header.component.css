@@ -80,6 +80,15 @@
   box-shadow: 0 12px 24px rgba(23, 50, 77, 0.18);
 }
 
+.header-login {
+  min-height: 44px;
+  border-radius: 999px;
+  margin-right: 10px;
+  border-color: rgba(23, 50, 77, 0.18) !important;
+  color: var(--accent-strong) !important;
+  font-weight: 700;
+}
+
 .menu-button {
   color: var(--text-strong);
 }
@@ -102,6 +111,11 @@
   margin-top: 12px;
   display: inline-flex;
   justify-content: center;
+}
+
+.mobile-login {
+  margin-top: 8px;
+  margin-right: 0;
 }
 
 @media (max-width: 768px) {

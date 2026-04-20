@@ -15,7 +15,16 @@
       <a mat-button routerLink="/" fragment="what-we-do">What we do</a>
       <a mat-button routerLink="/" fragment="curriculum-details">Curriculum</a>
       <a mat-button routerLink="/" fragment="contact">Contact</a>
+      <a *ngIf="isLoggedIn" mat-button routerLink="/portal">Portal</a>
     </nav>
+
+    <a *ngIf="!isSmallScreen && !isLoggedIn" mat-stroked-button routerLink="/login" class="header-login">
+      Login
+    </a>
+
+    <button *ngIf="!isSmallScreen && isLoggedIn" mat-stroked-button type="button" class="header-login" (click)="logout()">
+      Logout
+    </button>
 
     <a *ngIf="!isSmallScreen" mat-flat-button routerLink="/" fragment="contact" class="header-cta">
       Book a Consultation
@@ -36,6 +45,13 @@
       <a mat-button routerLink="/" fragment="what-we-do" (click)="sidenav.close()">What we do</a>
       <a mat-button routerLink="/" fragment="curriculum-details" (click)="sidenav.close()">Curriculum</a>
       <a mat-button routerLink="/" fragment="contact" (click)="sidenav.close()">Contact</a>
+      <a *ngIf="isLoggedIn" mat-button routerLink="/portal" (click)="sidenav.close()">Portal</a>
+      <a *ngIf="!isLoggedIn" mat-stroked-button routerLink="/login" class="header-login mobile-login" (click)="sidenav.close()">
+        Login
+      </a>
+      <button *ngIf="isLoggedIn" mat-stroked-button type="button" class="header-login mobile-login" (click)="logout()">
+        Logout
+      </button>
       <a mat-flat-button routerLink="/" fragment="contact" class="header-cta mobile-cta" (click)="sidenav.close()">
         Book a Consultation
       </a>
